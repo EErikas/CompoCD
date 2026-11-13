@@ -1,0 +1,5 @@
+services:
+  try2hack:
+    image: ghcr.io/eerikas/try2hack:latest
+    ports:
+      - "8080:80"
