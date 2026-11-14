@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/EErikas/CompoCD/internal/compose"
+	"github.com/EErikas/CompoCD/internal/docker"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -24,7 +24,7 @@ func (s *Node) ParseStackConfig(path string) error {
 	}
 	s.Config = cfg
 	s.stacks = make(map[string][]string)
-	s.compose = compose.SetupCompose()
+	s.docker = docker.SetupDocker()
 	s.getComposeFiles()
 
 	return nil
@@ -33,11 +33,16 @@ func (s *Node) ParseStackConfig(path string) error {
 func (s *Node) StartStack() {
 	// s.compose.StartServices(s.Config.Project.Name)
 	for stack, files := range s.stacks {
-		s.compose.StartService(
+		s.docker.StartService(
 			fmt.Sprintf("%s-%s", s.Config.Project.Name, stack),
 			files,
 		)
 	}
+	report, err := s.docker.Prune()
+	if err != nil {
+		log.Fatalf("Failed to prune Docker resources: %v", err)
+	}
+	report.Print()
 }
 
 func (s *Node) getComposeFiles() error {

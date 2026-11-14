@@ -1,6 +1,6 @@
 package stack
 
-import "github.com/EErikas/CompoCD/internal/compose"
+import "github.com/EErikas/CompoCD/internal/docker"
 
 type Project struct {
 	Name string `yaml:"name"`
@@ -12,7 +12,7 @@ type NodeConfig struct {
 }
 
 type Node struct {
-	Config  NodeConfig
-	compose compose.Compose
-	stacks  map[string][]string
+	Config NodeConfig
+	docker docker.Docker
+	stacks map[string][]string
 }

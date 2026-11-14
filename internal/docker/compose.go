@@ -1,4 +1,4 @@
-package compose
+package docker
 
 import (
 	"context"
@@ -10,13 +10,7 @@ import (
 	"github.com/docker/compose/v5/pkg/compose"
 )
 
-type Compose struct {
-	ctx          context.Context
-	service      api.Compose
-	ComposeFiles []string
-}
-
-func SetupCompose() Compose {
+func SetupDocker() Docker {
 	dockerCLI, err := command.NewDockerCli()
 	if err != nil {
 		log.Fatalf("Failed to create docker CLI: %v", err)
@@ -25,26 +19,26 @@ func SetupCompose() Compose {
 	if err != nil {
 		log.Fatalf("Failed to initialize docker CLI: %v", err)
 	}
-
 	// Create a new Compose service instance
 	service, err := compose.NewComposeService(dockerCLI)
 	if err != nil {
 		log.Fatalf("Failed to create compose service: %v", err)
 	}
 
-	return Compose{
+	return Docker{
 		ctx:          context.Background(),
-		service:      service,
+		client:       dockerCLI.Client(),
+		compose:      service,
 		ComposeFiles: []string{},
 	}
 
 }
 
-func (c *Compose) StartServices(name string) {
+func (c *Docker) StartServices(name string) {
 	ctx := context.Background()
 
 	// Load the Compose project from a compose file
-	project, err := c.service.LoadProject(ctx, api.ProjectLoadOptions{
+	project, err := c.compose.LoadProject(ctx, api.ProjectLoadOptions{
 		ConfigPaths: c.ComposeFiles,
 		ProjectName: name,
 	})
@@ -53,7 +47,7 @@ func (c *Compose) StartServices(name string) {
 	}
 
 	// Start the services defined in the Compose file
-	err = c.service.Up(ctx, project, api.UpOptions{
+	err = c.compose.Up(ctx, project, api.UpOptions{
 		Create: api.CreateOptions{
 			RemoveOrphans: true,
 			Inherit:       true,
@@ -67,9 +61,9 @@ func (c *Compose) StartServices(name string) {
 	log.Printf("Successfully started project: %s", project.Name)
 }
 
-func (c *Compose) StartService(name string, files []string) {
+func (c *Docker) StartService(name string, files []string) {
 	// Load the Compose project from a compose file
-	project, err := c.service.LoadProject(c.ctx, api.ProjectLoadOptions{
+	project, err := c.compose.LoadProject(c.ctx, api.ProjectLoadOptions{
 		ConfigPaths: files,
 		ProjectName: name,
 	})
@@ -78,7 +72,7 @@ func (c *Compose) StartService(name string, files []string) {
 	}
 
 	// Start the services defined in the Compose file
-	err = c.service.Up(c.ctx, project, api.UpOptions{
+	err = c.compose.Up(c.ctx, project, api.UpOptions{
 		Create: api.CreateOptions{
 			RemoveOrphans: true,
 			Inherit:       true,
