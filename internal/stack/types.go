@@ -1,6 +1,9 @@
 package stack
 
-import "github.com/EErikas/CompoCD/internal/docker"
+import (
+	"github.com/EErikas/CompoCD/internal/docker"
+	"github.com/EErikas/CompoCD/internal/repo"
+)
 
 const LockFileName = "compocd.lock"
 
@@ -21,6 +24,7 @@ type Node struct {
 }
 
 type LockConfig struct {
-	Config NodeConfig `yaml:"config"`
-	Stacks []string   `yaml:"stacks"`
+	Config    NodeConfig     `yaml:"config"`
+	GitConfig repo.GitConfig `yaml:"git"`
+	Stacks    []string       `yaml:"stacks"`
 }
