@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	composetypes "github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/cli/cli/command"
 	"github.com/docker/cli/cli/flags"
 	"github.com/docker/compose/v5/pkg/api"
@@ -26,62 +27,56 @@ func SetupDocker() Docker {
 	}
 
 	return Docker{
-		ctx:          context.Background(),
-		client:       dockerCLI.Client(),
-		compose:      service,
-		ComposeFiles: []string{},
+		ctx:     context.Background(),
+		client:  dockerCLI.Client(),
+		compose: service,
 	}
 
 }
 
-func (c *Docker) StartServices(name string) {
-	ctx := context.Background()
+func (d *Docker) loadProject(name string, files []string) (*composetypes.Project, error) {
 
-	// Load the Compose project from a compose file
-	project, err := c.compose.LoadProject(ctx, api.ProjectLoadOptions{
-		ConfigPaths: c.ComposeFiles,
-		ProjectName: name,
-	})
-	if err != nil {
-		log.Fatalf("Failed to load project: %v", err)
-	}
-
-	// Start the services defined in the Compose file
-	err = c.compose.Up(ctx, project, api.UpOptions{
-		Create: api.CreateOptions{
-			RemoveOrphans: true,
-			Inherit:       true,
-		},
-		Start: api.StartOptions{},
-	})
-	if err != nil {
-		log.Fatalf("Failed to start services: %v", err)
-	}
-
-	log.Printf("Successfully started project: %s", project.Name)
-}
-
-func (c *Docker) StartService(name string, files []string) {
-	// Load the Compose project from a compose file
-	project, err := c.compose.LoadProject(c.ctx, api.ProjectLoadOptions{
+	return d.compose.LoadProject(d.ctx, api.ProjectLoadOptions{
 		ConfigPaths: files,
 		ProjectName: name,
 	})
-	if err != nil {
-		log.Fatalf("Failed to load project: %v", err)
+}
+
+func (d *Docker) StartService(name string, files []string) {
+	// Load the Compose project from a compose file
+	project, loadErr := d.loadProject(name, files)
+	if loadErr != nil {
+		log.Fatalf("Failed to load project: %v", loadErr)
 	}
 
-	// Start the services defined in the Compose file
-	err = c.compose.Up(c.ctx, project, api.UpOptions{
+	upOptions := api.UpOptions{
 		Create: api.CreateOptions{
 			RemoveOrphans: true,
 			Inherit:       true,
 		},
 		Start: api.StartOptions{},
-	})
-	if err != nil {
+	}
+
+	// Start the services defined in the Compose file
+	if err := d.compose.Up(d.ctx, project, upOptions); err != nil {
 		log.Fatalf("Failed to start services: %v", err)
 	}
 
 	log.Printf("Successfully started project: %s", project.Name)
+}
+
+func (d *Docker) RemoveService(name string) {
+
+	downOptions := api.DownOptions{
+		RemoveOrphans: true,
+		Volumes:       true,
+		Images:        api.ImagePruneAll,
+	}
+
+	// Start the services defined in the Compose file
+	if err := d.compose.Down(d.ctx, name, downOptions); err != nil {
+		log.Fatalf("Failed to start services: %v", err)
+	}
+
+	log.Printf("Successfully removed project: %s", name)
 }

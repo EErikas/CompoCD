@@ -8,10 +8,9 @@ import (
 )
 
 type Docker struct {
-	ctx          context.Context
-	client       client.APIClient
-	compose      api.Compose
-	ComposeFiles []string
+	ctx     context.Context
+	client  client.APIClient
+	compose api.Compose
 }
 
 type PruneReport struct {
