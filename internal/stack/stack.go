@@ -1,11 +1,14 @@
 package stack
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/EErikas/CompoCD/internal/docker"
 	"go.yaml.in/yaml/v3"
@@ -23,6 +26,7 @@ func (s *Node) ParseStackConfig(path string) error {
 		return err
 	}
 	s.Config = cfg
+	s.LockFile = filepath.Join(s.Config.Project.Dir, LockFileName)
 	s.stacks = make(map[string][]string)
 	s.docker = docker.SetupDocker()
 	s.getComposeFiles()
@@ -31,13 +35,26 @@ func (s *Node) ParseStackConfig(path string) error {
 }
 
 func (s *Node) StartStack() {
-	// s.compose.StartServices(s.Config.Project.Name)
-	for stack, files := range s.stacks {
-		s.docker.StartService(
-			fmt.Sprintf("%s-%s", s.Config.Project.Name, stack),
-			files,
-		)
+	lockConfig, exists, err := s.GetLockFile()
+	if err != nil {
+		log.Fatalf("Failed due to error %e", err)
 	}
+	incoming := slices.Collect(maps.Keys(s.stacks))
+	if exists {
+		fmt.Println("Reading existing lockfile")
+		for _, i := range lockConfig.Stacks {
+			if !slices.Contains(incoming, i) {
+				fmt.Printf("Removing %s", i)
+				s.docker.RemoveService(i)
+			}
+		}
+	}
+	s.writeLockFile()
+
+	for stack, files := range s.stacks {
+		s.docker.StartService(stack, files)
+	}
+
 	report, err := s.docker.Prune()
 	if err != nil {
 		log.Fatalf("Failed to prune Docker resources: %v", err)
@@ -57,4 +74,33 @@ func (s *Node) getComposeFiles() error {
 			}
 			return nil
 		})
+}
+
+func (s *Node) writeLockFile() (LockConfig, error) {
+	lockConfig := LockConfig{
+		Config: s.Config,
+		Stacks: slices.Collect(maps.Keys(s.stacks)),
+	}
+	data, marshallErr := yaml.Marshal(&lockConfig)
+	if marshallErr == nil {
+		writeErr := os.WriteFile(s.LockFile, data, 0644)
+		return lockConfig, writeErr
+	}
+	return lockConfig, marshallErr
+}
+
+func (s *Node) GetLockFile() (LockConfig, bool, error) {
+	var lockConfig LockConfig
+
+	data, readErr := os.ReadFile(s.LockFile)
+	if readErr != nil && errors.Is(readErr, os.ErrNotExist) {
+		lockConfig, err := s.writeLockFile()
+		return lockConfig, false, err
+	} else if readErr == nil {
+		parseErr := yaml.Unmarshal(data, &lockConfig)
+		return lockConfig, true, parseErr
+	} else {
+		return lockConfig, false, readErr
+	}
+
 }
