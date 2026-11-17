@@ -1,0 +1,32 @@
+services:
+    server:
+        image: ghcr.io/eerikas/iventoy:latest
+        restart: unless-stopped
+        privileged: true
+        environment:
+            - ENC[AES256_GCM,data:GIm6nCKynjqOtdqvAr4=,iv:KGYSY4C/Pt5HpimeC8vwRkZP3Wuiv2x1GUFoBg/z20M=,tag:hYQ4/DbfDrauEptEpEHELg==,type:str]
+        ports:
+            - 26000:26000
+            - 16000:16000
+            - 10809:10809
+            - 69:69/udp
+        volumes:
+            - ./:/iventoy/iso
+            - ./:/iventoy/data
+            - ./:/iventoy/log
+            - ./:/iventoy/user
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA2VE9NcmZWRjZTcUFGWmJL
+            R3hCV2NabFM1V0ZtNVRYSVk0MERNNlhLSkY0CmFZT2VWaVQwNUJtRmxFcmhQYkVO
+            akxQMGRiVnBxeFJ2WXhOYmlHaXQ4TjQKLS0tIFpEQVlBSTBxWGRLWG0zSkNTVE1j
+            RmJDaGplRmo4U2R3aFBjU3dlOGZxL3MKO4giVqKz3/Qx5/5+hIXWOxzBIsnncJpF
+            b8nbBBgOb24RwuRMb4+YilWapAQb0CcHl1/G6A3bQOCTjaOM18Chhw==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age1z32uk39ldsf5gxy6ch6u3gnq70g77ah0n5v92w6rz3n9j2sj8d9sy6ze7z
+    encrypted_regex: ^environment$
+    lastmodified: "2026-11-17T19:27:45Z"
+    mac: ENC[AES256_GCM,data:v0Zkxff+Izs/d5e0s+J2dOqhIG2D8RIbAanOoFkIdVPOe+ZXImmHkmSs3KGM18fcVGLegZnYsVAt98wXwEfqiwGuiOyeqrOi6bNeUiqzx7qrSTjNXn0AwLpvtHF+Xf5u7TvV49agC3yf/64wR6kRZkqUE8CPXZ9PU1cXYUewnoU=,iv:+zmEshyuasETHdfxUHhuOKX8XBnf0dnblmJ0vVNeO2o=,tag:Ip8BjCxQd6mE9DAkFrywPA==,type:str]
+    version: 3.13.3
