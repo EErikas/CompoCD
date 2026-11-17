@@ -1,6 +1,7 @@
 services:
     server:
         image: ghcr.io/eerikas/iventoy:latest
+        platform: linux/amd64
         restart: unless-stopped
         privileged: true
         environment:
