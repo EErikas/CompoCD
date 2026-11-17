@@ -7,6 +7,7 @@ import (
 	"path"
 
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
 	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/client"
 	httptransport "github.com/go-git/go-git/v6/plumbing/transport/http"
@@ -100,22 +101,35 @@ func (cfg *GitConfig) Fetch() error {
 	if cfg.git == nil {
 		return fmt.Errorf("repository is not initialized")
 	}
+	branch := plumbing.NewBranchReferenceName(cfg.Branch)
+	remoteBranch := plumbing.NewRemoteReferenceName("origin", cfg.Branch)
+	refSpec := config.RefSpec("+" + branch.String() + ":" + remoteBranch.String())
 	if err := cfg.git.Fetch(&git.FetchOptions{
 		RemoteName:    "origin",
+		RefSpecs:      []config.RefSpec{refSpec},
+		Force:         true,
 		ClientOptions: cfg.clientOptions(),
 	}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return fmt.Errorf("fetch repository: %w", err)
 	}
-	worktree, err := cfg.git.Worktree()
+	remoteRef, err := cfg.git.Reference(remoteBranch, false)
 	if err != nil {
-		return err
-	}
-	checkoutOptions := &git.CheckoutOptions{
-		Branch:                    plumbing.NewBranchReferenceName(cfg.Branch),
-		SparseCheckoutDirectories: sparseCheckoutDirectories(cfg.RepoPath),
+		return fmt.Errorf("find fetched branch %q: %w", cfg.Branch, err)
 	}
 
-	return worktree.Checkout(checkoutOptions)
+	worktree, err := cfg.git.Worktree()
+	if err != nil {
+		return fmt.Errorf("open worktree: %w", err)
+	}
+	sparseDirs := sparseCheckoutDirectories(cfg.RepoPath)
+	if err := worktree.Checkout(&git.CheckoutOptions{
+		Hash:                      remoteRef.Hash(),
+		Force:                     true,
+		SparseCheckoutDirectories: sparseDirs,
+	}); err != nil {
+		return fmt.Errorf("reset worktree to fetched branch %q: %w", cfg.Branch, err)
+	}
+	return nil
 }
 
 func sparseCheckoutDirectories(repoPath string) []string {
