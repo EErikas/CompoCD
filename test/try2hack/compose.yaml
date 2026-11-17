@@ -1,0 +1,7 @@
+services:
+  try2hack:
+    image: nginx:latest
+    ports:
+      - "8081:80"
+  caddy:
+    image: caddy:latest
