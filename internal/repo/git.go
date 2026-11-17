@@ -3,35 +3,22 @@ package repo
 import (
 	"errors"
 	"fmt"
-	"os"
+	"log"
+	"path"
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/client"
 	httptransport "github.com/go-git/go-git/v6/plumbing/transport/http"
 	sshtransport "github.com/go-git/go-git/v6/plumbing/transport/ssh"
-	"go.yaml.in/yaml/v4"
 )
-
-func SetupGit(configFile string) (GitConfig, error) {
-	var cfg GitConfig
-	data, readErr := os.ReadFile(configFile)
-	if readErr != nil {
-		return cfg, readErr
-	}
-	err := yaml.Unmarshal(data, &cfg)
-	if err != nil {
-		return cfg, err
-	}
-	return cfg, nil
-}
 
 func (cfg *GitConfig) configureAuth() error {
 	cfg.auth = nil
 	switch cfg.AuthType {
-	case AuthNone:
+	case authNone:
 		return nil
-	case AuthHTTPS:
+	case authHTTPS:
 		if cfg.AuthSecret == "" {
 			return fmt.Errorf("HTTPS authentication requires an access token")
 		}
@@ -40,7 +27,7 @@ func (cfg *GitConfig) configureAuth() error {
 			Password: cfg.AuthSecret,
 		})
 		return nil
-	case AuthSSH:
+	case authSSH:
 		if cfg.AuthSecret == "" {
 			return fmt.Errorf("SSH authentication requires a private key file path")
 		}
@@ -55,18 +42,40 @@ func (cfg *GitConfig) configureAuth() error {
 	}
 }
 
-func (cfg *GitConfig) Init(projectPath string) error {
+func (cfg *GitConfig) clientOptions() []client.Option {
+	if cfg.auth == nil {
+		return nil
+	}
+	return []client.Option{cfg.auth}
+}
+
+func (cfg *GitConfig) Init() error {
+	if cfg.Repo == "" {
+		return fmt.Errorf("git repo is required")
+	}
+	if cfg.Branch == "" {
+		return fmt.Errorf("git branch is required")
+	}
 	if err := cfg.configureAuth(); err != nil {
-		return err
+		return fmt.Errorf("auth error: %w", err)
 	}
 
-	repository, err := git.PlainClone(projectPath, &git.CloneOptions{
+	repoExists, err := cfg.checkRepo()
+	if err != nil {
+		return err
+	}
+	if repoExists {
+		log.Print("Repo already exists, skipping cloning... ")
+		return nil
+	}
+
+	repository, err := git.PlainClone(cfg.DiskPath, &git.CloneOptions{
 		URL:           cfg.Repo,
 		ReferenceName: plumbing.NewBranchReferenceName(cfg.Branch),
 		SingleBranch:  true,
 		Depth:         1,
 		NoCheckout:    true,
-		ClientOptions: []client.Option{cfg.auth},
+		ClientOptions: cfg.clientOptions(),
 	})
 	if err != nil {
 		return fmt.Errorf("clone repository: %w", err)
@@ -75,13 +84,25 @@ func (cfg *GitConfig) Init(projectPath string) error {
 	return nil
 }
 
+func (cfg *GitConfig) checkRepo() (bool, error) {
+	repository, err := git.PlainOpen(cfg.DiskPath)
+	if err == nil {
+		cfg.git = repository
+		return true, nil
+	}
+	if errors.Is(err, git.ErrRepositoryNotExists) {
+		return false, nil
+	}
+	return false, fmt.Errorf("open repository: %w", err)
+}
+
 func (cfg *GitConfig) Fetch() error {
 	if cfg.git == nil {
 		return fmt.Errorf("repository is not initialized")
 	}
 	if err := cfg.git.Fetch(&git.FetchOptions{
 		RemoteName:    "origin",
-		ClientOptions: []client.Option{cfg.auth},
+		ClientOptions: cfg.clientOptions(),
 	}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return fmt.Errorf("fetch repository: %w", err)
 	}
@@ -91,7 +112,16 @@ func (cfg *GitConfig) Fetch() error {
 	}
 	checkoutOptions := &git.CheckoutOptions{
 		Branch:                    plumbing.NewBranchReferenceName(cfg.Branch),
-		SparseCheckoutDirectories: []string{cfg.Path},
+		SparseCheckoutDirectories: sparseCheckoutDirectories(cfg.RepoPath),
 	}
+
 	return worktree.Checkout(checkoutOptions)
+}
+
+func sparseCheckoutDirectories(repoPath string) []string {
+	repoPath = path.Clean(repoPath)
+	if repoPath == "." {
+		return nil
+	}
+	return []string{repoPath}
 }

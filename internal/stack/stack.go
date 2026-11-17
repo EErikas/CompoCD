@@ -29,12 +29,20 @@ func (s *Node) ParseStackConfig(path string) error {
 	s.LockFile = filepath.Join(s.Config.Project.Dir, LockFileName)
 	s.stacks = make(map[string][]string)
 	s.docker = docker.SetupDocker()
-	s.getComposeFiles()
+	s.Config.GitConfig.DiskPath = s.Config.Project.Dir
 
 	return nil
 }
 
+func (s *Node) UpdateRepo() error {
+	var err error
+	err = s.Config.GitConfig.Init()
+	err = s.Config.GitConfig.Fetch()
+	return err
+}
+
 func (s *Node) StartStack() {
+	s.getComposeFiles()
 	lockConfig, exists, err := s.GetLockFile()
 	if err != nil {
 		log.Fatalf("Failed due to error %e", err)
@@ -63,7 +71,11 @@ func (s *Node) StartStack() {
 }
 
 func (s *Node) getComposeFiles() error {
-	return filepath.WalkDir(s.Config.Project.Dir,
+	composeFileDir := filepath.Join(
+		s.Config.Project.Dir,
+		s.Config.GitConfig.RepoPath,
+	)
+	return filepath.WalkDir(composeFileDir,
 		func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -78,7 +90,6 @@ func (s *Node) getComposeFiles() error {
 
 func (s *Node) writeLockFile() (LockConfig, error) {
 	lockConfig := LockConfig{
-		Config: s.Config,
 		Stacks: slices.Collect(maps.Keys(s.stacks)),
 	}
 	data, marshallErr := yaml.Marshal(&lockConfig)

@@ -13,7 +13,8 @@ type Project struct {
 }
 
 type NodeConfig struct {
-	Project Project `yaml:"project"`
+	Project   Project        `yaml:"project"`
+	GitConfig repo.GitConfig `yaml:"git"`
 }
 
 type Node struct {
@@ -24,7 +25,5 @@ type Node struct {
 }
 
 type LockConfig struct {
-	Config    NodeConfig     `yaml:"config"`
-	GitConfig repo.GitConfig `yaml:"git"`
-	Stacks    []string       `yaml:"stacks"`
+	Stacks []string `yaml:"stacks"`
 }

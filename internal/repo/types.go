@@ -5,21 +5,21 @@ import (
 	"github.com/go-git/go-git/v6/plumbing/client"
 )
 
-type AuthMethod string
+type authMethod string
 
 const (
-	AuthNone  AuthMethod = ""
-	AuthSSH   AuthMethod = "ssh"
-	AuthHTTPS AuthMethod = "https"
+	authNone  authMethod = ""
+	authSSH   authMethod = "ssh"
+	authHTTPS authMethod = "https"
 )
 
 type GitConfig struct {
 	Repo       string     `yaml:"repo" json:"repo"`
-	URL        string     `yaml:"url" json:"url"`
 	Branch     string     `yaml:"branch" json:"branch"`
-	Path       string     `yaml:"path" json:"path"`
-	AuthType   AuthMethod `yaml:"authType" json:"authType"`
+	RepoPath   string     `yaml:"repoPath" json:"repoPath"`
+	AuthType   authMethod `yaml:"authType" json:"authType"`
 	AuthSecret string     `yaml:"authSecret,omitempty" json:"authSecret,omitempty"`
+	DiskPath   string
 	auth       client.Option
 	git        *git.Repository
 }
