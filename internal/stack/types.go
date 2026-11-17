@@ -8,8 +8,9 @@ import (
 const LockFileName = "compocd.lock"
 
 type Project struct {
-	Name string `yaml:"name"`
-	Dir  string `yaml:"dir"`
+	Name       string `yaml:"name"`
+	Dir        string `yaml:"dir"`
+	SopsAgeKey string `yaml:"sops_age_key,omitempty"`
 }
 
 type NodeConfig struct {

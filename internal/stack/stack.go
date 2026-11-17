@@ -25,12 +25,16 @@ func (s *Node) ParseStackConfig(path string) error {
 		log.Fatal("Failed to parse config")
 		return err
 	}
+	if cfg.Project.SopsAgeKey != "" {
+		if err := os.Setenv("SOPS_AGE_KEY", cfg.Project.SopsAgeKey); err != nil {
+			return fmt.Errorf("set SOPS_AGE_KEY: %w", err)
+		}
+	}
 	s.Config = cfg
 	s.LockFile = filepath.Join(s.Config.Project.Dir, LockFileName)
 	s.stacks = make(map[string][]string)
 	s.docker = docker.SetupDocker()
 	s.Config.GitConfig.DiskPath = s.Config.Project.Dir
-
 	return nil
 }
 
@@ -42,7 +46,9 @@ func (s *Node) UpdateRepo() error {
 }
 
 func (s *Node) StartStack() {
-	s.getComposeFiles()
+	if err := s.getComposeFiles(); err != nil {
+		log.Fatalf("Failed to find Compose files: %v", err)
+	}
 	lockConfig, exists, err := s.GetLockFile()
 	if err != nil {
 		log.Fatalf("Failed due to error %e", err)
@@ -71,6 +77,7 @@ func (s *Node) StartStack() {
 }
 
 func (s *Node) getComposeFiles() error {
+	s.stacks = make(map[string][]string)
 	composeFileDir := filepath.Join(
 		s.Config.Project.Dir,
 		s.Config.GitConfig.RepoPath,
@@ -80,7 +87,7 @@ func (s *Node) getComposeFiles() error {
 			if err != nil {
 				return err
 			}
-			if !d.IsDir() && d.Name() == "compose.yaml" {
+			if !d.IsDir() && (d.Name() == "compose.yaml" || d.Name() == "compose.sops.yaml") {
 				key := filepath.Base(filepath.Dir(path))
 				s.stacks[key] = append(s.stacks[key], path)
 			}
